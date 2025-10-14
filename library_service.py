@@ -24,7 +24,6 @@ def _is_valid_patron_id(pid: str) -> bool:
     return pid.isdigit() and len(pid) == 6
 
 
-# ADD THIS ADAPTER so tests can monkeypatch `library_service.insert_book`
 def insert_book(title: str, author: str, isbn: str, total_copies: int, available_copies: int):
     # Ignore available_copies here; DB layer computes availability internally.
     return database.insert_book(title, author, isbn, total_copies)
