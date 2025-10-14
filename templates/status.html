@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>👤 Patron Status</h2>
+<p>Enter a patron ID (6 digits) to view current loans, fees owed, and history.</p>
+
+<form method="GET" action="{{ url_for('status.patron_status') }}">
+    <div class="form-group">
+        <label for="patron_id">Patron ID *</label>
+        <input type="text" id="patron_id" name="patron_id" pattern="[0-9]{6}" maxlength="6" required
+               value="{{ patron_id if patron_id else '' }}">
+    </div>
+    <div class="form-group">
+        <button type="submit" class="btn">View Status</button>
+    </div>
+</form>
+
+{% if report %}
+    <hr style="margin: 30px 0;">
+    <h3>Current Borrowed ({{ report.currently_borrowed_count }})</h3>
+    {% if report.currently_borrowed %}
+        <table>
+            <thead>
+                <tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Days Overdue</th><th>Fee Due</th></tr>
+            </thead>
+            <tbody>
+                {% for r in report.currently_borrowed %}
+                <tr>
+                    <td>[{{ r.book_id }}] {{ r.title }} — {{ r.author }} ({{ r.isbn }})</td>
+                    <td>{{ r.borrow_date[:10] }}</td>
+                    <td>{{ r.due_date[:10] }}</td>
+                    <td>{{ r.days_overdue }}</td>
+                    <td>${{ '%.2f'|format(r.fee_due) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p style="margin-top: 10px;"><strong>Total Late Fees Owed (active items):</strong> ${{ '%.2f'|format(report.total_late_fees_owed) }}</p>
+    {% else %}
+        <p>No books currently borrowed.</p>
+    {% endif %}
+
+    <h3 style="margin-top: 30px;">Borrowing History</h3>
+    {% if report.borrow_history %}
+        <table>
+            <thead>
+                <tr><th>Book</th><th>Borrowed</th><th>Due</th><th>Returned</th></tr>
+            </thead>
+            <tbody>
+                {% for r in report.borrow_history %}
+                <tr>
+                    <td>[{{ r.book_id }}] {{ r.title }} — {{ r.author }} ({{ r.isbn }})</td>
+                    <td>{{ r.borrow_date[:10] }}</td>
+                    <td>{{ r.due_date[:10] }}</td>
+                    <td>{{ r.return_date[:10] if r.return_date else '—' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No borrowing history found.</p>
+    {% endif %}
+{% endif %}
+{% endblock %}
