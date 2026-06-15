@@ -34,7 +34,7 @@ jobs:
       - name: Install Playwright browsers
         run: |
           python -m pip install playwright
-          python -m playwright install
+          python -m playwright install chromium
 
       - name: Start Flask app
         run: |
