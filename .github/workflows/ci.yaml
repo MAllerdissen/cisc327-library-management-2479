@@ -53,21 +53,15 @@ jobs:
           python -m flask run --host=0.0.0.0 --port=5000 > flask.log 2>&1 &
           FLASK_PID=$!
 
-          python - <<'PY'
-import time
-import urllib.request
-
-url = 'http://127.0.0.1:5000/'
-for _ in range(30):
-    try:
-        urllib.request.urlopen(url, timeout=1)
-        print('Flask server is ready')
-        break
-    except Exception:
-        time.sleep(1)
-else:
-    raise SystemExit('Flask server did not start')
-PY
+          # Native bash loop to wait for Flask (No Python indentation traps!)
+          echo "Waiting for Flask server..."
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:5000/ > /dev/null; then
+              echo "Flask server is ready"
+              break
+            fi
+            sleep 1
+          done
 
           python -m pytest -q
           kill $FLASK_PID || true
@@ -88,6 +82,9 @@ PY
               $attempts++
             }
           }
-          if ($attempts -ge 30) { throw 'Flask server did not start' }
+          if ($attempts -ge 30) {
+            $process | Stop-Process -Force
+            throw 'Flask server did not start'
+          }
           python -m pytest -q
           $process | Stop-Process -Force
