@@ -14,7 +14,7 @@ jobs:
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "pypy-3.9"]
 
     env:
-      FLASK_APP: app:create_app  # <-- tell flask which app to run
+      FLASK_APP: app:create_app
 
     steps:
       - name: Checkout code
@@ -29,18 +29,42 @@ jobs:
         run: |
           python -m pip install -U pip
           python -m pip install -r requirements.txt
-          python -m pip install pytest pytest-mock
+          python -m pip install pytest pytest-mock playwright
 
-      - name: Install Playwright browsers
+      - name: Install Playwright browsers and system deps
         run: |
-          python -m pip install playwright
           python -m playwright install chromium
-
-      - name: Start Flask app
-        run: |
-          python -m flask run --host=0.0.0.0 --port=5000 &
-          sleep 5
+          # Only run install-deps on Linux, as it's not supported/needed like this on macOS/Windows
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            python -m playwright install-deps chromium
+          fi
         shell: bash
 
-      - name: Run tests
-        run: python -m pytest -q
+      - name: Start Flask app and run tests
+        shell: bash
+        run: |
+          python -m flask run --host=0.0.0.0 --port=5000 > flask.log 2>&1 &
+          FLASK_PID=$!
+          
+          # Wait for Flask to boot up
+          python - <<'PY'
+import time
+import urllib.request
+
+url = 'http://127.0.0.1:5000/'
+for _ in range(30):
+    try:
+        urllib.request.urlopen(url, timeout=1)
+        print('Flask server is ready')
+        break
+    except Exception:
+        time.sleep(1)
+else:
+    raise SystemExit('Flask server did not start')
+PY
+
+          # Run the tests
+          python -m pytest -q
+          
+          # Clean up the background Flask process
+          kill $FLASK_PID || true
