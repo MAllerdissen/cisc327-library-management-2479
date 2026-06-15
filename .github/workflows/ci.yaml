@@ -31,22 +31,28 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install pytest pytest-mock playwright
 
-      - name: Install Playwright browsers and system deps
+      - name: Install Playwright browsers and system deps (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
         run: |
           python -m playwright install chromium
-          # Only run install-deps on Linux, as it's not supported/needed like this on macOS/Windows
           if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
             python -m playwright install-deps chromium
           fi
-        shell: bash
 
-      - name: Start Flask app and run tests
+      - name: Install Playwright browsers (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          python -m playwright install chromium
+
+      - name: Start Flask app and run tests (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           python -m flask run --host=0.0.0.0 --port=5000 > flask.log 2>&1 &
           FLASK_PID=$!
-          
-          # Wait for Flask to boot up
+
           python - <<'PY'
 import time
 import urllib.request
@@ -63,8 +69,25 @@ else:
     raise SystemExit('Flask server did not start')
 PY
 
-          # Run the tests
           python -m pytest -q
-          
-          # Clean up the background Flask process
           kill $FLASK_PID || true
+
+      - name: Start Flask app and run tests (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath python -ArgumentList '-m flask run --host=127.0.0.1 --port=5000' -NoNewWindow -PassThru
+          $attempts = 0
+          while ($attempts -lt 30) {
+            try {
+              Invoke-WebRequest -Uri 'http://127.0.0.1:5000/' -UseBasicParsing -TimeoutSec 2 | Out-Null
+              Write-Host 'Flask server is ready'
+              break
+            } catch {
+              Start-Sleep -Seconds 1
+              $attempts++
+            }
+          }
+          if ($attempts -ge 30) { throw 'Flask server did not start' }
+          python -m pytest -q
+          $process | Stop-Process -Force
